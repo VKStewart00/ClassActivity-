@@ -1,6 +1,6 @@
 ---
 title: "Summarizing Penguins"
-author: "Your Name (and Parner)"
+author: "Van Stewart"
 format: gfm
 execute: 
   echo: true
@@ -80,12 +80,29 @@ Create new variable called `bill_ratio` that is the ratio of length to depth (le
 
 ```{r}
 
+penguins |> 
+  mutate(bill_ratio = (bill_length_mm/bill_depth_mm))
+
 ```
 
 
 Now create a boxplot of `bill_ratio` split by species.  Be sure to add labels to the axes.  You can add other modifications if you want as well (fill/color, theme, etc).
 
 ```{r}
+
+penguins |> 
+  mutate(bill_ratio = bill_length_mm / bill_depth_mm) |> 
+  ggplot(aes(x = species, y = bill_ratio, fill = species)) +
+  geom_boxplot() +
+  labs(
+    x = "Penguin Species",
+    y = "Bill Ratio (Length / Depth)",
+    title = "Distribution of Bill Ratios by Species"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+  
+
 
 ```
 
@@ -94,20 +111,32 @@ Add three new columns to penguins within one `mutate()` function: one column tha
 
 ```{r}
 penguins |>
-  mutate(bill_ratio = ___________,
-         body_mass_kg = ___________,
-         flipper_length_m = ______________)
+  mutate(
+    bill_ratio = bill_length_mm / bill_depth_mm,
+    body_mass_kg = body_mass_g / 1000,
+    flipper_length_m = flipper_length_mm / 1000
+  )
 ```
 
 
 We can also use `mutate()` to modify an existing variable.  By default, R reports factors in alphabetical order (you may notice in your boxplot they always print in the same order, Adelie, Chinstrap, Gentoo). If we want to reorder, we can use a function `fct_relevel()` from the `forcats` package, which we will learn about in a few weeks. Modify the code below to calculate the `bill_ratio` and then recreate the boxplot from above by species - how does it differ? 
 
 ```{r}
+
 penguins |> 
-  mutate(species = 
-           fct_relevel(species, "Adelie", "Gentoo", "Chinstrap"),
-         bill_ratio = ___________) |> 
-  ___________
+  mutate(
+    species = fct_relevel(species, "Adelie", "Gentoo", "Chinstrap"),
+    bill_ratio = bill_length_mm / bill_depth_mm
+  ) |> 
+  ggplot(aes(x = species, y = bill_ratio, fill = species)) +
+  geom_boxplot() +
+  labs(
+    x = "Species",
+    y = "Bill Ratio (Length / Depth)",
+    title = "Bill Ratio by Penguin Species"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
   
 ```
 
@@ -143,9 +172,12 @@ Find the mean and standard deviation of body mass in *kilograms* by species and 
 
 ```{r}
 penguins |> 
-  _________(body_mass_kg = ____________) |> 
-  group_by(_______________) |> 
-  summarize(_______________)
+  mutate(body_mass_kg = body_mass_g / 1000) |> 
+  group_by(species, sex) |> 
+  summarize(
+    mean_body_mass_kg = mean(body_mass_kg, na.rm = TRUE),
+    sd_body_mass_kg = sd(body_mass_kg, na.rm = TRUE)
+  )
 ```
 
 
@@ -165,6 +197,15 @@ Starting with penguins, in a piped sequence:
 - Create a summary table containing the mean of the bill_ratio variable, by species (name the column in the summary table bill_ratio_mean)  
 
 ```{r}
+
+penguins |> 
+  filter(species == "Chinstrap") |> 
+  group_by(island) |> 
+  summarize(
+    flip_max = max(flipper_length_mm, na.rm = TRUE),
+    flip_min = min(flipper_length_mm, na.rm = TRUE)
+  )
+
 
 ```
 
@@ -240,6 +281,16 @@ Bonus Point: The names in the resulting table should be the original column name
 
 ```{r}
 
+penguins |> 
+  group_by(island) |> 
+  summarize(
+    across(
+      .cols = contains("mm"),
+      .fns = ~ median(.x, na.rm = TRUE),
+      .names = "{.col}_median"
+    )
+  )
+
 ```
 
 Starting from penguins, write a piped sequence to:  
@@ -250,6 +301,20 @@ Starting from penguins, write a piped sequence to:
 - Group the data by `spp_penguin`  
 - Find the mean value for any variable containing the string “length”, by penguin species, with column names updated to the original column name appended with "_mean" at the end  
 ```{r}
+
+
+penguins |> 
+  filter(island != "Biscoe") |> 
+  select(species:body_mass_g) |> 
+  rename(spp_penguin = species) |> 
+  group_by(spp_penguin) |> 
+  summarize(
+    across(
+      .cols = contains("length"),
+      .fns = ~ mean(.x, na.rm = TRUE),
+      .names = "{.col}_mean"
+    )
+  )
 
 ```
 
@@ -298,11 +363,20 @@ penguins |>
 Starting with penguins, find counts of observation by species, island, and year.
 ```{r}
 
+penguins |> 
+  count(species, island, year)
+
+
 ```
 
 
 Starting with penguins, filter to only keep Adelie and Gentoo penguins, then find counts by species and sex.
 ```{r}
+
+penguins |> 
+  filter(species %in% c("Adelie", "Gentoo")) |> 
+  count(species, sex)
+
 
 ```
 
@@ -351,12 +425,36 @@ Add a new column to penguins called study_year that contains:
 
 ```{r}
 
+penguins |> 
+  mutate(
+    study_year = case_when(
+      year == 2007 ~ "Year 1",
+      year == 2008 ~ "Year 2",
+      year == 2009 ~ "Year 3"
+    )
+  )
+
+
+
 ```
 
 
 Starting with penguins, only keep observations for chinstrap penguins, then only keep the `flipper_length_mm` and `body_mass_g` variables. Add a new column called `fm_ratio` that contains the ratio of flipper length to body mass for each penguin. Next, add another column named `ratio_bin` which contains the word “high” if `fm_ratio` is greater than or equal to 0.05, “low” if the ratio is less than 0.05, and “no record” if anything else (e.g. NA). 
 
 ```{r}
+
+penguins |> 
+  filter(species == "Chinstrap") |> 
+  select(flipper_length_mm, body_mass_g) |> 
+  mutate(
+    fm_ratio = flipper_length_mm / body_mass_g,
+    ratio_bin = case_when(
+      is.na(fm_ratio) ~ "no record",
+      fm_ratio >= 0.05 ~ "high",
+      fm_ratio < 0.05 ~ "low"
+    )
+  )
+
 
 ```
 
